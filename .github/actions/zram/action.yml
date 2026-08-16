@@ -1,0 +1,97 @@
+name: Apply enhanced ZRAM stack
+description: Integrate LZ4 NEON, LZ4K, LZ4KD, and Oplus ZRAM patches
+
+inputs:
+  android_version:
+    description: Android version
+    required: true
+  kernel_version:
+    description: Kernel version
+    required: true
+  patch_ref:
+    description: Branch or commit of zzh20188/GKI_KernelSU_SUSFS
+    required: false
+    default: dev
+
+runs:
+  using: composite
+  steps:
+    - name: Apply ZRAM patches
+      shell: bash
+      working-directory: ${{ github.workspace }}/kernel/common
+      run: |
+        set -euo pipefail
+
+        KERNEL_VERSION="${{ inputs.kernel_version }}"
+        if [[ "$KERNEL_VERSION" == "6.12" ]]; then
+          echo "::warning::Enhanced ZRAM patches are not available for kernel 6.12; skipping."
+          exit 0
+        fi
+
+        PATCH_ROOT="${{ github.workspace }}/zram-patches"
+        SUKISU_PATCH_ROOT="${{ github.workspace }}/SukiSU_patch"
+        rm -rf "$PATCH_ROOT" "$SUKISU_PATCH_ROOT"
+
+        git clone --depth=1 --branch "${{ inputs.patch_ref }}" \
+          https://github.com/zzh20188/GKI_KernelSU_SUSFS.git "$PATCH_ROOT"
+        git clone --depth=1 https://github.com/ShirkNeko/SukiSU_patch.git "$SUKISU_PATCH_ROOT"
+
+        test -d "$SUKISU_PATCH_ROOT/other/zram/zram_patch/$KERNEL_VERSION"
+
+        rm -f lib/lz4/lz4_compress.c lib/lz4/lz4_decompress.c \
+          lib/lz4/lz4defs.h lib/lz4/lz4hc_compress.c
+        cp -a "$PATCH_ROOT/zram/lz4/." lib/lz4/
+        cp -a "$PATCH_ROOT/zram/include/linux/." include/linux/
+        bash "$PATCH_ROOT/zram/apply_lz4_neon.sh"
+
+        if [[ -f fs/f2fs/Makefile ]] \
+          && ! grep -qF 'f2fs-$(CONFIG_F2FS_IOSTAT) += iostat.o' fs/f2fs/Makefile; then
+          echo 'f2fs-$(CONFIG_F2FS_IOSTAT) += iostat.o' >> fs/f2fs/Makefile
+        fi
+
+        cp -a "$SUKISU_PATCH_ROOT/other/zram/lz4k/include/linux/." include/linux/
+        cp -a "$SUKISU_PATCH_ROOT/other/zram/lz4k/lib/." lib/
+        cp -a "$SUKISU_PATCH_ROOT/other/zram/lz4k/crypto/." crypto/
+        rm -rf lib/lz4k_oplus
+        cp -a "$SUKISU_PATCH_ROOT/other/zram/lz4k_oplus" lib/
+
+        for patch_name in lz4kd.patch lz4k_oplus.patch; do
+          patch_file="$SUKISU_PATCH_ROOT/other/zram/zram_patch/$KERNEL_VERSION/$patch_name"
+          if ! patch -p1 -F 3 --forward < "$patch_file"; then
+            echo "::warning::$patch_name did not apply cleanly; it may already be applied."
+          fi
+        done
+
+        DEFCONFIG="arch/arm64/configs/gki_defconfig"
+        set_config() {
+          local key="$1"
+          local value="$2"
+          if grep -q "^${key}=" "$DEFCONFIG"; then
+            sed -i "s|^${key}=.*|${key}=${value}|" "$DEFCONFIG"
+          elif grep -q "^# ${key} is not set" "$DEFCONFIG"; then
+            sed -i "s|^# ${key} is not set|${key}=${value}|" "$DEFCONFIG"
+          else
+            echo "${key}=${value}" >> "$DEFCONFIG"
+          fi
+        }
+
+        set_config CONFIG_ZSMALLOC y
+        set_config CONFIG_ZRAM y
+        set_config CONFIG_CRYPTO_LZ4HC y
+        set_config CONFIG_CRYPTO_LZ4K y
+        set_config CONFIG_CRYPTO_LZ4KD y
+        set_config CONFIG_CRYPTO_842 y
+        set_config CONFIG_CRYPTO_LZ4K_OPLUS y
+
+        if [[ "$KERNEL_VERSION" == "5.10" ]]; then
+          set_config CONFIG_MODULE_SIG n
+          set_config CONFIG_CRYPTO_LZO y
+          set_config CONFIG_ZRAM_DEF_COMP_LZ4KD y
+        fi
+
+        if [[ "${{ inputs.android_version }}" == "android14" \
+          || "${{ inputs.android_version }}" == "android15" ]] \
+          && [[ -f modules.bzl ]]; then
+          sed -i 's/"drivers\/block\/zram\/zram\.ko",//g; s/"mm\/zsmalloc\.ko",//g' modules.bzl
+        fi
+

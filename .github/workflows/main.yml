@@ -32,58 +32,18 @@ on:
         description: "Feature Set"
         type: choice
         options:
-          - KSUN+SUSFS+BBG+NET+DS
-          - KSUN+SUSFS+BBG
-          - KSUN+SUSFS+NET
-          - KSUN+SUSFS+DS
-          - KSUN+SUSFS
-          - KSUN+BBG
-          - KSUN+NET
-          - KSUN+DS
-          - KSUN
+          - RESUKISU+ZRAM+REKERNEL+NET+DS
+          - RESUKISU+ZRAM+REKERNEL+NET
+          - RESUKISU+ZRAM+REKERNEL+DS
+          - RESUKISU+ZRAM+REKERNEL
           - NONE
           - FULL
         default: FULL
-      ksu_branch:
-        description: "KernelSU branch or commit (empty = latest dev-susfs branch tip)"
+      resukisu_ref:
+        description: "ReSukiSU branch, tag, or commit (empty = main)"
         type: string
         required: false
-        default: ""
-      susfs_commit_android12-5-10:
-        description: "SUSFS commit for android12-5.10 (empty = latest branch tip)"
-        type: string
-        required: false
-        default: ""
-      susfs_commit_android13-5-10:
-        description: "SUSFS commit for android13-5.10 (empty = latest branch tip)"
-        type: string
-        required: false
-        default: ""
-      susfs_commit_android13-5-15:
-        description: "SUSFS commit for android13-5.15 (empty = latest branch tip)"
-        type: string
-        required: false
-        default: ""
-      susfs_commit_android14-5-15:
-        description: "SUSFS commit for android14-5.15 (empty = latest branch tip)"
-        type: string
-        required: false
-        default: ""
-      susfs_commit_android14-6-1:
-        description: "SUSFS commit for android14-6.1 (empty = latest branch tip)"
-        type: string
-        required: false
-        default: ""
-      susfs_commit_android15-6-6:
-        description: "SUSFS commit for android15-6.6 (empty = latest branch tip)"
-        type: string
-        required: false
-        default: ""
-      susfs_commit_android16-6-12:
-        description: "SUSFS commit for android16-6.12 (empty = latest branch tip)"
-        type: string
-        required: false
-        default: ""
+        default: "main"
 
 jobs:
   prepare-ccache:
@@ -127,8 +87,7 @@ jobs:
     with:
       config_file: .github/config/android12-5.10.json
       feature_set: ${{ inputs.feature_set || 'FULL' }}
-      ksu_branch: ${{ inputs.ksu_branch }}
-      susfs_commit: ${{ inputs.susfs_commit_android12-5-10 }}
+      resukisu_ref: ${{ inputs.resukisu_ref }}
     secrets: inherit
 
   build-android13-5-10:
@@ -138,8 +97,7 @@ jobs:
     with:
       config_file: .github/config/android13-5.10.json
       feature_set: ${{ inputs.feature_set || 'FULL' }}
-      ksu_branch: ${{ inputs.ksu_branch }}
-      susfs_commit: ${{ inputs.susfs_commit_android13-5-10 }}
+      resukisu_ref: ${{ inputs.resukisu_ref }}
     secrets: inherit
 
   build-android13-5-15:
@@ -149,8 +107,7 @@ jobs:
     with:
       config_file: .github/config/android13-5.15.json
       feature_set: ${{ inputs.feature_set || 'FULL' }}
-      ksu_branch: ${{ inputs.ksu_branch }}
-      susfs_commit: ${{ inputs.susfs_commit_android13-5-15 }}
+      resukisu_ref: ${{ inputs.resukisu_ref }}
     secrets: inherit
 
   build-android14-5-15:
@@ -160,8 +117,7 @@ jobs:
     with:
       config_file: .github/config/android14-5.15.json
       feature_set: ${{ inputs.feature_set || 'FULL' }}
-      ksu_branch: ${{ inputs.ksu_branch }}
-      susfs_commit: ${{ inputs.susfs_commit_android14-5-15 }}
+      resukisu_ref: ${{ inputs.resukisu_ref }}
     secrets: inherit
 
   build-android14-6-1:
@@ -171,8 +127,7 @@ jobs:
     with:
       config_file: .github/config/android14-6.1.json
       feature_set: ${{ inputs.feature_set || 'FULL' }}
-      ksu_branch: ${{ inputs.ksu_branch }}
-      susfs_commit: ${{ inputs.susfs_commit_android14-6-1 }}
+      resukisu_ref: ${{ inputs.resukisu_ref }}
     secrets: inherit
 
   build-android15-6-6:
@@ -182,8 +137,7 @@ jobs:
     with:
       config_file: .github/config/android15-6.6.json
       feature_set: ${{ inputs.feature_set || 'FULL' }}
-      ksu_branch: ${{ inputs.ksu_branch }}
-      susfs_commit: ${{ inputs.susfs_commit_android15-6-6 }}
+      resukisu_ref: ${{ inputs.resukisu_ref }}
     secrets: inherit
 
   build-android16-6-12:
@@ -193,8 +147,7 @@ jobs:
     with:
       config_file: .github/config/android16-6.12.json
       feature_set: ${{ inputs.feature_set || 'FULL' }}
-      ksu_branch: ${{ inputs.ksu_branch }}
-      susfs_commit: ${{ inputs.susfs_commit_android16-6-12 }}
+      resukisu_ref: ${{ inputs.resukisu_ref }}
     secrets: inherit
 
   rej:
@@ -312,7 +265,7 @@ jobs:
           echo "# 📋 Build Summary — $(date -u '+%Y-%m-%d %H:%M UTC')"
           echo
           echo "**Feature Set:** ${{ inputs.feature_set }}"
-          echo "**KSU Branch:** ${{ inputs.ksu_branch || 'latest dev' }}"
+          echo "**ReSukiSU ref:** ${{ inputs.resukisu_ref || 'main' }}"
           echo
           
           # Count successes and failures
@@ -347,15 +300,6 @@ jobs:
             echo
           done
           
-          echo
-          echo "> **SUSFS Commits:**"
-          echo "> - android12-5.10: ${{ inputs.susfs_commit_android12-5-10 || 'latest' }}"
-          echo "> - android13-5.10: ${{ inputs.susfs_commit_android13-5-10 || 'latest' }}"
-          echo "> - android13-5.15: ${{ inputs.susfs_commit_android13-5-15 || 'latest' }}"
-          echo "> - android14-5.15: ${{ inputs.susfs_commit_android14-5-15 || 'latest' }}"
-          echo "> - android14-6.1: ${{ inputs.susfs_commit_android14-6-1 || 'latest' }}"
-          echo "> - android15-6.6: ${{ inputs.susfs_commit_android15-6-6 || 'latest' }}"
-          echo "> - android16-6.12: ${{ inputs.susfs_commit_android16-6-12 || 'latest' }}"
         } >> "$GITHUB_STEP_SUMMARY"
 
     - name: 🧹 Cleanup Summary Files
@@ -490,70 +434,43 @@ jobs:
 
         echo "release_title=$release_title" >> "$GITHUB_OUTPUT"
 
-    - name: Extract KernelSU Version Info
+    - name: Extract ReSukiSU Version Info
       id: ksu_version
       run: |
         set -euo pipefail
 
-        KSU_REPO="https://github.com/pershoot/KernelSU-Next.git"
-        KSU_INPUT="${{ inputs.ksu_branch }}"
+        KSU_REPO="https://github.com/hzzmonetvn/ReSukiSU.git"
+        KSU_INPUT="${{ inputs.resukisu_ref }}"
         if [ -z "$KSU_INPUT" ]; then
-          KSU_INPUT="dev-susfs"
+          KSU_INPUT="main"
         fi
 
         # Try as branch first, fall back to commit
         if git ls-remote --heads "$KSU_REPO" "$KSU_INPUT" | grep -q .; then
-          echo "Cloning KernelSU-Next from branch: $KSU_INPUT"
-          git clone --branch "$KSU_INPUT" "$KSU_REPO" /tmp/kernelsu-next
-          cd /tmp/kernelsu-next
-          KSUN_COMMIT=$(git rev-parse HEAD)
+          echo "Cloning ReSukiSU from branch: $KSU_INPUT"
+          git clone --branch "$KSU_INPUT" "$KSU_REPO" /tmp/resukisu
+          cd /tmp/resukisu
+          RESUKISU_COMMIT=$(git rev-parse HEAD)
         else
-          echo "Cloning KernelSU-Next from dev-susfs branch, then checking out commit: $KSU_INPUT"
-          git clone --branch dev-susfs "$KSU_REPO" /tmp/kernelsu-next
-          cd /tmp/kernelsu-next
+          echo "Cloning ReSukiSU from main, then checking out: $KSU_INPUT"
+          git clone --branch main "$KSU_REPO" /tmp/resukisu
+          cd /tmp/resukisu
           git fetch --depth=50 origin "$KSU_INPUT"
           git checkout "$KSU_INPUT"
-          KSUN_COMMIT="$KSU_INPUT"
+          RESUKISU_COMMIT=$(git rev-parse HEAD)
         fi
 
-        # The manager is built on the OFFICIAL KernelSU-Next repo
-        # (pershoot's workflows are all disabled). Find the official dev
-        # commit this fork's branch is synced with (merge-base of our
-        # branch vs official dev), then link the manager build run for
-        # that commit. pershoot's own dev branch is intentionally ignored.
-        retry() {
-          local n=0
-          until [ "$n" -ge 5 ]; do
-            "$@" && return 0
-            n=$((n+1))
-            echo "retry $n/5 failed for: $*" >&2
-            sleep 5
-          done
-          return 1
-        }
-
-        OFFICIAL_KSU_REPO="https://github.com/KernelSU-Next/KernelSU-Next.git"
-        retry git fetch "$OFFICIAL_KSU_REPO" dev
-        STOCK_COMMIT=$(git merge-base HEAD FETCH_HEAD)
-        echo "KSU Stock Commit (official sync point): $STOCK_COMMIT"
-
-        # Extract version info — anchored to the official sync point
-        # (STOCK_COMMIT), i.e. the commit the linked manager is built from.
-        # Mirrors pershoot c0a2c5fd: count the merge-base with origin, not
-        # the fork's extra commits, so the version shown in the release
-        # notes matches what the kernel reports and the manager displays.
-        COMMITS_COUNT=$(git rev-list --count "$STOCK_COMMIT")
-        BASE_VERSION=30000
+        COMMITS_COUNT=$(git rev-list --count HEAD)
+        BASE_VERSION=30700
         KSU_VERSION=$(expr $COMMITS_COUNT "+" $BASE_VERSION)
 
-        # Extract git tag at the sync point
-        KSU_GIT_TAG=$(git describe --tags --abbrev=0 "$STOCK_COMMIT" 2>/dev/null || echo "no-tag")
+        KSU_GIT_TAG=$(git describe --tags --abbrev=0 HEAD 2>/dev/null || echo "no-tag")
 
-        MANAGER_RUN_ID=$(curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors "https://api.github.com/repos/KernelSU-Next/KernelSU-Next/actions/workflows/build-manager-ci.yml/runs?head_sha=${STOCK_COMMIT}" | jq -r '.workflow_runs[0].id // empty')
+        MANAGER_RUN_ID=$(curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors "https://api.github.com/repos/hzzmonetvn/ReSukiSU/actions/workflows/build-manager.yml/runs?head_sha=${RESUKISU_COMMIT}" | jq -r '.workflow_runs[0].id // empty')
         if [[ -n "${MANAGER_RUN_ID:-}" ]]; then
-          KSU_MANAGER="https://github.com/KernelSU-Next/KernelSU-Next/actions/runs/${MANAGER_RUN_ID}"
+          KSU_MANAGER="https://github.com/hzzmonetvn/ReSukiSU/actions/runs/${MANAGER_RUN_ID}"
         else
-          KSU_MANAGER="https://github.com/KernelSU-Next/KernelSU-Next/actions/workflows/build-manager-ci.yml"
+          KSU_MANAGER="https://github.com/hzzmonetvn/ReSukiSU/actions/workflows/build-manager.yml"
         fi
 
         echo "Commits count: $COMMITS_COUNT"
@@ -562,8 +479,8 @@ jobs:
         echo "KSU Manager: $KSU_MANAGER"
 
         # Export as environment for next step
-        echo "KSUN_BRANCH=$KSU_INPUT" >> $GITHUB_ENV
-        echo "KSUN_COMMIT=$KSUN_COMMIT" >> $GITHUB_ENV
+        echo "RESUKISU_REF=$KSU_INPUT" >> $GITHUB_ENV
+        echo "RESUKISU_COMMIT=$RESUKISU_COMMIT" >> $GITHUB_ENV
         echo "KSU_COMMITS_COUNT=$COMMITS_COUNT" >> $GITHUB_ENV
         echo "KSU_VERSION=$KSU_VERSION" >> $GITHUB_ENV
         echo "KSU_GIT_TAG=$KSU_GIT_TAG" >> $GITHUB_ENV

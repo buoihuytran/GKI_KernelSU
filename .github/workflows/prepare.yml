@@ -11,16 +11,11 @@ on:
         description: "Feature Set"
         required: false
         type: string
-      ksu_branch:
-        description: "KernelSU branch or commit (empty = latest dev)"
+      resukisu_ref:
+        description: "ReSukiSU branch, tag, or commit"
         required: false
         type: string
-        default: ""
-      susfs_commit:
-        description: "SUSFS commit hash (empty = latest on auto-derived branch)"
-        required: false
-        type: string
-        default: ""
+        default: "main"
 
 jobs:
   generate-matrix:
@@ -92,6 +87,5 @@ jobs:
       os_patch_level: ${{ matrix.os_patch_level }}
       variant: ${{ matrix.variant }}
       feature_set: ${{ inputs.feature_set }}
-      ksu_branch: ${{ inputs.ksu_branch }}
-      susfs_commit: ${{ inputs.susfs_commit }}
+      resukisu_ref: ${{ inputs.resukisu_ref }}
     secrets: inherit

@@ -27,14 +27,10 @@ on:
       feature_set:
         required: true
         type: string
-      ksu_branch:
+      resukisu_ref:
         required: false
         type: string
-        default: ""
-      susfs_commit:
-        required: false
-        type: string
-        default: ""
+        default: "main"
 
 jobs:
   build-gki:
@@ -141,26 +137,25 @@ jobs:
         sublevel: ${{ steps.extract.outputs.sublevel }}
         os_patch_level: ${{ inputs.os_patch_level }}
 
-    - name: Setup KernelSU-Next
-      if: contains(inputs.feature_set, 'KSUN') || inputs.feature_set == 'FULL'
-      uses: ./.github/actions/kernelsu
+    - name: Setup ReSukiSU
+      if: contains(inputs.feature_set, 'RESUKISU') || inputs.feature_set == 'FULL'
+      uses: ./.github/actions/resukisu
       with:
-        ksu_branch: ${{ inputs.ksu_branch }}
-
-    - name: SUSFS
-      if: contains(inputs.feature_set, 'SUSFS') || inputs.feature_set == 'FULL'
-      uses: ./.github/actions/susfs
-      with:
-        susfs_commit: ${{ inputs.susfs_commit }}
-        version: ${{ inputs.version }}
+        resukisu_ref: ${{ inputs.resukisu_ref }}
         android_version: ${{ inputs.android_version }}
         kernel_version: ${{ inputs.kernel_version }}
-        os_patch_level: ${{ inputs.os_patch_level }}
         sublevel: ${{ steps.extract.outputs.sublevel }}
 
-    - name: Baseband Guard
-      if: (contains(inputs.feature_set, 'BBG') || inputs.feature_set == 'FULL')
-      uses: ./.github/actions/bbg
+    - name: Apply enhanced ZRAM stack
+      if: contains(inputs.feature_set, 'RESUKISU') || inputs.feature_set == 'FULL'
+      uses: ./.github/actions/zram
+      with:
+        android_version: ${{ inputs.android_version }}
+        kernel_version: ${{ inputs.kernel_version }}
+
+    - name: Integrate Re-Kernel
+      if: contains(inputs.feature_set, 'RESUKISU') || inputs.feature_set == 'FULL'
+      uses: ./.github/actions/rekernel
 
     - name: Setup Networking
       if: contains(inputs.feature_set, 'NET') || inputs.feature_set == 'FULL'
@@ -410,15 +405,9 @@ jobs:
           KERNEL_VER_STR=$(strings "/home/runner/out/Image" | grep -m1 "^Linux version " | sed 's/Linux version //' || echo "")
         fi
         
-        # Get KSU version from env (set by kernelsu action)
+        # Get ReSukiSU version from env.
         KSU_VER="${KSU_VERSION:-N/A}"
         KSU_TAG="${KSU_GIT_TAG:-N/A}"
-        
-        # Get SUSFS version from susfs.h if available
-        SUSFS_VER="N/A"
-        if [ -f "${{ github.workspace }}/kernel/common/include/linux/susfs.h" ]; then
-          SUSFS_VER=$(grep '#define SUSFS_VERSION' "${{ github.workspace }}/kernel/common/include/linux/susfs.h" | awk -F'"' '{print $2}' || echo "N/A")
-        fi
         
         # Get cache stats from env (set by cache-stats action)
         CCACHE_HIT="${CCACHE_HIT_RATE:-N/A}"
@@ -439,9 +428,8 @@ jobs:
           if [ -n "$KERNEL_VER_STR" ]; then
             echo "| **Version String** | \`${KERNEL_VER_STR}\` |"
           fi
-          echo "| **KSU Version** | ${KSU_VER} |"
-          echo "| **KSU Tag** | ${KSU_TAG} |"
-          echo "| **SUSFS Version** | ${SUSFS_VER} |"
+          echo "| **ReSukiSU Version** | ${KSU_VER} |"
+          echo "| **ReSukiSU Tag** | ${KSU_TAG} |"
           echo "| **Feature Set** | ${{ inputs.feature_set }} |"
           echo "| **Variant** | ${{ inputs.variant }} |"
           echo

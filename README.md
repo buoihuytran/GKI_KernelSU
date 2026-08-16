@@ -2,8 +2,7 @@
 
 # 🔥 Wild Kernels for Android
 
-[![KernelSU](https://img.shields.io/badge/KernelSU-Supported-green)](https://kernelsu.org/)
-[![SUSFS](https://img.shields.io/badge/SUSFS-Integrated-orange)](https://gitlab.com/simonpunk/susfs4ksu)
+[![ReSukiSU](https://img.shields.io/badge/ReSukiSU-Supported-green)](https://github.com/hzzmonetvn/ReSukiSU/tree/main)
 
 </div>
 
@@ -49,19 +48,18 @@ For GKI installation, please follow the official guide:
 
 ## ✨ Features
 
-- 🔐 **KernelSU**: A root solution for Android GKI devices that works in kernel mode and grants root permission to userspace applications directly in kernel space
-- 🛡️ **SUSFS**: An addon root hiding kernel patches and userspace module for KernelSU
+- 🔐 **ReSukiSU**: Kernel-based root integration using the ReSukiSU main branch
+- 💾 **Enhanced ZRAM**: LZ4 NEON, LZ4K, LZ4KD and Oplus compression patches
+- ❄️ **Re-Kernel**: In-tree process-freezing driver with network activity support
 
 ---
 
 ## 🏆 Credits
 
-- 🔐 **KernelSU**: Developed by [tiann](https://github.com/tiann/KernelSU)
-- 🚀 **KernelSU-Next**: Developed by [rifsxd](https://github.com/KernelSU-Next/KernelSU-Next)
+- 🔐 **ReSukiSU**: Maintained at [hzzmonetvn/ReSukiSU](https://github.com/hzzmonetvn/ReSukiSU/tree/main)
+- 💾 **ZRAM patch stack**: Based on [zzh20188/GKI_KernelSU_SUSFS](https://github.com/zzh20188/GKI_KernelSU_SUSFS)
+- ❄️ **Re-Kernel**: Developed by [Sakion-Team](https://github.com/Sakion-Team/Re-Kernel)
 - ✨ **Magic-KSU**: Developed by [5ec1cff](https://github.com/5ec1cff/KernelSU)
-- 🛡️ **SUSFS**: Developed by [simonpunk](https://gitlab.com/simonpunk/susfs4ksu.git)
-- 🛡️ **Baseband-guard (BBG)**: Developed by [vc-teahouse](https://github.com/vc-teahouse/Baseband-guard)
-- 📦 **SUSFS Module**: Developed by [sidex15](https://github.com/sidex15)
 - 👑 **Sultan Kernels**: Developed by [kerneltoast](https://github.com/kerneltoast)
 - 🔧 **Device Boot Fix**: [Boot fix commit](https://github.com/Anything-at-25-00/android_kernel_common_android12-5.10/commit/2476d262b597fe8af82cfb7aaf96676f51c6b4ed) for fixing some devices not booting
 
@@ -104,12 +102,10 @@ Flashing this kernel will void your warranty, and there is always a risk of bric
 
 | Contributor | Contribution |
 |-------------|-------------|
-| 🛡️ [simonpunk](https://gitlab.com/simonpunk/susfs4ksu.git) | Created SUSFS! |
 | 📦 [sidex15](https://github.com/sidex15) | Created module! |
 | 🩹 [backslashxx](https://github.com/backslashxx) | Helped with patches! |
 | 🔧 [Teemo](https://github.com/liqideqq) | Helped with patches! |
 | 💝 [幕落](https://github.com/MuLuo688) | Donation! |
-| 🛡️ [vc-teahouse](https://github.com/vc-teahouse) | Created Baseband-guard (BBG)! |
 
 *If you have contributed and are not listed here, please remind me!* 🙏
 

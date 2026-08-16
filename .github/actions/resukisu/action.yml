@@ -1,0 +1,87 @@
+name: Setup ReSukiSU
+description: Install ReSukiSU and apply GKI compatibility configuration
+
+inputs:
+  resukisu_ref:
+    description: ReSukiSU branch, tag, or commit
+    required: false
+    default: main
+  android_version:
+    description: Android version (for compatibility fixes)
+    required: true
+  kernel_version:
+    description: Kernel version
+    required: true
+  sublevel:
+    description: Kernel sublevel
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Install ReSukiSU
+      shell: bash
+      working-directory: ${{ github.workspace }}/kernel
+      run: |
+        set -euo pipefail
+
+        REF="${{ inputs.resukisu_ref }}"
+        REF="${REF:-main}"
+        SETUP_SCRIPT="$(mktemp)"
+
+        cleanup() {
+          rm -f "$SETUP_SCRIPT"
+        }
+        trap cleanup EXIT
+
+        curl -LfsS --retry 5 --retry-delay 5 --retry-all-errors \
+          https://raw.githubusercontent.com/hzzmonetvn/ReSukiSU/main/kernel/setup.sh \
+          -o "$SETUP_SCRIPT"
+        bash "$SETUP_SCRIPT" "$REF"
+
+        test -d KernelSU/.git
+        RESUKISU_COMMIT="$(git -C KernelSU rev-parse HEAD)"
+        RESUKISU_GIT_VERSION="$(git -C KernelSU rev-list --count HEAD)"
+        RESUKISU_VERSION="$((30700 + RESUKISU_GIT_VERSION))"
+        RESUKISU_TAG="$(git -C KernelSU describe --tags --abbrev=0 2>/dev/null || echo no-tag)"
+
+        echo "RESUKISU_REF=$REF" >> "$GITHUB_ENV"
+        echo "RESUKISU_COMMIT=$RESUKISU_COMMIT" >> "$GITHUB_ENV"
+        echo "KSU_VERSION=$RESUKISU_VERSION" >> "$GITHUB_ENV"
+        echo "KSU_GIT_TAG=$RESUKISU_TAG" >> "$GITHUB_ENV"
+
+    - name: Apply ReSukiSU compatibility fixes
+      shell: bash
+      working-directory: ${{ github.workspace }}/kernel
+      run: |
+        set -euo pipefail
+
+        SUBLEVEL="${{ inputs.sublevel }}"
+        if [[ ! "$SUBLEVEL" =~ ^[0-9]+$ ]]; then
+          SUBLEVEL=99999
+        fi
+
+        if [[ "${{ inputs.android_version }}" == "android13" \
+          && "${{ inputs.kernel_version }}" == "5.15" \
+          && "$SUBLEVEL" -ge 74 \
+          && "$SUBLEVEL" -le 137 ]]; then
+          DEFCONFIG="common/arch/arm64/configs/gki_defconfig"
+          grep -q '^CONFIG_KALLSYMS=y$' "$DEFCONFIG" || echo 'CONFIG_KALLSYMS=y' >> "$DEFCONFIG"
+          grep -q '^CONFIG_KALLSYMS_ALL=y$' "$DEFCONFIG" || echo 'CONFIG_KALLSYMS_ALL=y' >> "$DEFCONFIG"
+
+          KALLSYMS_C="common/kernel/kallsyms.c"
+          if [[ -f "$KALLSYMS_C" \
+            && $(grep -cF 'int kallsyms_on_each_symbol' "$KALLSYMS_C") -gt 0 \
+            && $(grep -cF '#endif /* CONFIG_LIVEPATCH */' "$KALLSYMS_C") -gt 0 ]]; then
+            sed -i '/^#ifdef CONFIG_LIVEPATCH$/,/^int kallsyms_on_each_symbol/ { /^#ifdef CONFIG_LIVEPATCH$/d }' "$KALLSYMS_C"
+            sed -i '/^int kallsyms_on_each_symbol/,/^#endif \/\* CONFIG_LIVEPATCH \*\// { /^#endif \/\* CONFIG_LIVEPATCH \*\//d }' "$KALLSYMS_C"
+          fi
+        fi
+
+    - name: Enable ReSukiSU configs
+      uses: ./.github/actions/set-kernel-config
+      with:
+        config_list: |
+          CONFIG_KSU=y
+          CONFIG_KSU_TRACEPOINT_HOOK=y
+          CONFIG_KSU_MULTI_MANAGER_SUPPORT=y

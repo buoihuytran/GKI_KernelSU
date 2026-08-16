@@ -1,0 +1,44 @@
+name: Integrate Re-Kernel
+description: Build Re-Kernel as an in-tree GKI driver
+
+runs:
+  using: composite
+  steps:
+    - name: Apply Re-Kernel
+      shell: bash
+      working-directory: ${{ github.workspace }}/kernel
+      run: |
+        set -euo pipefail
+
+        SOURCE_DIR="${{ github.workspace }}/Re-Kernel"
+        rm -rf "$SOURCE_DIR" common/drivers/rekernel
+        git clone --depth=1 https://github.com/Sakion-Team/Re-Kernel.git "$SOURCE_DIR"
+
+        mkdir -p common/drivers/rekernel
+        cp -a "$SOURCE_DIR/LKM-Source/." common/drivers/rekernel/
+
+        REKERNEL_MAKEFILE="common/drivers/rekernel/Makefile"
+        sed -i 's/^obj-m := rekernel\.o$/obj-$(CONFIG_REKERNEL) += rekernel.o/' "$REKERNEL_MAKEFILE"
+        grep -qF 'ccflags-$(CONFIG_REKERNEL_LEGACY_NETLINK) += -DLEGACY_NETLINK' "$REKERNEL_MAKEFILE" || \
+          echo 'ccflags-$(CONFIG_REKERNEL_LEGACY_NETLINK) += -DLEGACY_NETLINK' >> "$REKERNEL_MAKEFILE"
+        sed -i '/^[[:space:]]*depends on MODULES[[:space:]]*$/d' common/drivers/rekernel/Kconfig
+
+        if ! grep -qF 'source "drivers/rekernel/Kconfig"' common/drivers/Kconfig; then
+          sed -i '/^endmenu$/i source "drivers/rekernel/Kconfig"' common/drivers/Kconfig
+        fi
+        grep -qF 'obj-$(CONFIG_REKERNEL) += rekernel/' common/drivers/Makefile || \
+          echo 'obj-$(CONFIG_REKERNEL) += rekernel/' >> common/drivers/Makefile
+
+        sed -i 's|#include <../android/binder_internal.h>|#include "../android/binder_internal.h"|g' \
+          common/drivers/rekernel/rekernel_binder.c
+        grep -qF '#include <linux/seq_file.h>' common/drivers/rekernel/rekernel_binder.c || \
+          sed -i '/#include <linux\/kprobes.h>/a #include <linux/seq_file.h>' \
+            common/drivers/rekernel/rekernel_binder.c
+
+    - name: Enable Re-Kernel configs
+      uses: ./.github/actions/set-kernel-config
+      with:
+        config_list: |
+          CONFIG_REKERNEL=y
+          CONFIG_REKERNEL_NETWORK=y
+

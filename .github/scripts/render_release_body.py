@@ -7,11 +7,9 @@ from pathlib import Path
 PLACEHOLDERS = {
     "{{KSU_VERSION}}": lambda: os.environ.get("KSU_VERSION", "unknown"),
     "{{KSU_GIT_TAG}}": lambda: os.environ.get("KSU_GIT_TAG", "no-tag"),
-    "{{KSUN_BRANCH}}": lambda: os.environ.get("KSUN_BRANCH", "dev"),
-    "{{KSUN_COMMIT}}": lambda: os.environ.get("KSUN_COMMIT", "unknown"),
+    "{{RESUKISU_REF}}": lambda: os.environ.get("RESUKISU_REF", "main"),
+    "{{RESUKISU_COMMIT}}": lambda: os.environ.get("RESUKISU_COMMIT", "unknown"),
     "{{KSU_MANAGER}}": lambda: os.environ.get("KSU_MANAGER", "Placeholder"),
-    "{{SUSFS_BRANCHES}}": lambda: os.environ.get("SUSFS_COMMIT", "latest on auto-derived gki-{version} branch"),
-    "{{SUSFS_BRANCHS}}": lambda: os.environ.get("SUSFS_COMMIT", "latest on auto-derived gki-{version} branch"),
 }
 
 
@@ -57,11 +55,11 @@ for line in data["release"]["disclaimer"]:
 
 kernelsu = data.get("kernelsu", {})
 emit()
-emit(f"## {kernelsu.get('name', 'KernelSU-Next')}")
+emit(f"## {kernelsu.get('name', 'ReSukiSU')}")
 emit(f"- Version: {os.environ.get('KSU_VERSION', kernelsu.get('version', 'unknown'))}")
 emit(f"- Tag: {os.environ.get('KSU_GIT_TAG', kernelsu.get('tag', 'no-tag'))}")
-emit(f"- Branch: {os.environ.get('KSUN_BRANCH', kernelsu.get('branch', 'dev'))}")
-emit(f"- Commit: {os.environ.get('KSUN_COMMIT', kernelsu.get('commit', 'unknown'))}")
+emit(f"- Ref: {os.environ.get('RESUKISU_REF', kernelsu.get('branch', 'main'))}")
+emit(f"- Commit: {os.environ.get('RESUKISU_COMMIT', kernelsu.get('commit', 'unknown'))}")
 if kernelsu.get("url"):
     emit(f"- URL: {kernelsu['url']}")
 if kernelsu.get("manager"):
@@ -85,13 +83,6 @@ for key in data.keys():
         emit(f"- Tag: {section['tag']}")
     if section.get("branch"):
         emit(f"- Branch: {section['branch']}")
-
-    if key == "susfs":
-        susfs_commit = os.environ.get("SUSFS_COMMIT", "")
-        if susfs_commit:
-            emit(f"- Commit: `{susfs_commit}`")
-        else:
-            emit("- Commit: latest on auto-derived gki-{version} branch")
 
     if section.get("items"):
         emit_list(section["items"])

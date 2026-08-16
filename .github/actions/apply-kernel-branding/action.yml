@@ -1,5 +1,5 @@
-name: 'Apply Kernel Branding & Timestamp'
-description: 'Apply Wild kernel branding to kernel version string'
+name: 'Apply HzzMonet Kernel Branding'
+description: 'Apply the HzzMonet suffix to the kernel version string'
 inputs:
   variant:
     description: 'Variant of kernel to apply branding to'
@@ -24,14 +24,11 @@ runs:
       shell: bash
       working-directory: ${{ github.workspace }}/kernel/common
       run: |
-        VERSION="${{ inputs.version }}"
-        ANDROID_PART=$(echo "$VERSION" | cut -d- -f1)
-        KERNEL_PART=$(echo "$VERSION" | cut -d- -f2)
+        set -euo pipefail
 
-        if [[ ${{ inputs.version }} == "android15-6.6" || ${{ inputs.version }} == "android16-6.12" ]]; then
-          KERNEL_STRING="$KERNEL_PART.${{ inputs.sublevel }}-$ANDROID_PART"
-          sed -i '$d' scripts/setlocalversion && echo "echo \"$KERNEL_STRING-Wild\"" >> scripts/setlocalversion
-        else
-          sed -i '$d' scripts/setlocalversion && echo "echo \"-$ANDROID_PART-Wild\"" >> scripts/setlocalversion
-        fi
+        # The base version comes from the kernel Makefile (for example
+        # 5.15.178). setlocalversion must only add the suffix; emitting the
+        # complete version here would duplicate the base version.
+        sed -i '$d' scripts/setlocalversion
+        echo 'echo "-HzzMonet"' >> scripts/setlocalversion
         chmod +x scripts/setlocalversion
