@@ -89,9 +89,15 @@ runs:
           set_config CONFIG_ZRAM_DEF_COMP_LZ4KD y
         fi
 
-        if [[ "${{ inputs.android_version }}" == "android14" \
-          || "${{ inputs.android_version }}" == "android15" ]] \
-          && [[ -f modules.bzl ]]; then
+        # zram + zsmalloc are now built-in (=y), so they no longer appear in
+        # modules.order. Drop them from whichever GKI module list this tree
+        # uses, or the "modules list out of date" check fails the build:
+        #   - android14/android15 (6.1/6.6): common/modules.bzl
+        #   - android12/android13 (5.10/5.15): android/gki_aarch64_modules
+        if [[ -f modules.bzl ]]; then
           sed -i 's/"drivers\/block\/zram\/zram\.ko",//g; s/"mm\/zsmalloc\.ko",//g' modules.bzl
+        fi
+        if [[ -f android/gki_aarch64_modules ]]; then
+          sed -i '\#^drivers/block/zram/zram\.ko$#d; \#^mm/zsmalloc\.ko$#d' android/gki_aarch64_modules
         fi
 
