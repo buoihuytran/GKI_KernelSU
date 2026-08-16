@@ -32,9 +32,7 @@ on:
         description: "Feature Set"
         type: choice
         options:
-          - RESUKISU+ZRAM+REKERNEL+NET+DS
           - RESUKISU+ZRAM+REKERNEL+NET
-          - RESUKISU+ZRAM+REKERNEL+DS
           - RESUKISU+ZRAM+REKERNEL
           - NONE
           - FULL
