@@ -1,0 +1,205 @@
+name: Device Kernel (source + /proc/config.gz)
+
+# Build a kernel straight from a device/OEM source tree, using the device's
+# own running config (/proc/config.gz) as the base so the result stays as
+# close as possible to the stock kernel. Plain `make` + Neutron clang.
+
+on:
+  workflow_dispatch:
+    inputs:
+      kernel_repo:
+        description: "Kernel source git URL (the source you want to build)"
+        type: string
+        required: true
+      kernel_branch:
+        description: "Branch / tag / commit to checkout"
+        type: string
+        required: true
+      config_url:
+        description: "URL to the device config: /proc/config.gz (gz auto-detected) or a raw .config/defconfig. Leave empty to use an in-tree defconfig instead."
+        type: string
+        required: false
+        default: ""
+      defconfig:
+        description: "In-tree defconfig name (used only when config_url is empty), e.g. gki_defconfig or vendor/nuwa_defconfig"
+        type: string
+        required: false
+        default: "gki_defconfig"
+      config_fragment_url:
+        description: "Optional URL to an extra config fragment merged on top (e.g. to enable KSU). Leave empty to skip."
+        type: string
+        required: false
+        default: ""
+      image_target:
+        description: "make image target(s)"
+        type: string
+        required: false
+        default: "Image Image.gz"
+      build_dtbs:
+        description: "Also build dtbs / dtbo"
+        type: boolean
+        required: false
+        default: false
+      clang_url:
+        description: "Override toolchain tarball URL (empty = Neutron clang via antman)"
+        type: string
+        required: false
+        default: ""
+      anykernel_repo:
+        description: "AnyKernel3 repo to package the Image with (empty = skip zip, upload raw Image)"
+        type: string
+        required: false
+        default: "https://github.com/osm0sis/AnyKernel3"
+      anykernel_branch:
+        description: "AnyKernel3 branch"
+        type: string
+        required: false
+        default: "master"
+
+jobs:
+  build:
+    name: Build device kernel
+    runs-on: ubuntu-latest
+    steps:
+      - name: Show inputs
+        run: |
+          echo "repo    = ${{ inputs.kernel_repo }}"
+          echo "branch  = ${{ inputs.kernel_branch }}"
+          echo "config  = ${{ inputs.config_url != '' && inputs.config_url || format('in-tree {0}', inputs.defconfig) }}"
+
+      - name: Free disk space
+        run: |
+          set -uo pipefail
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+                      /opt/hostedtoolcache/CodeQL /usr/local/share/boost || true
+          sudo docker image prune --all --force || true
+          df -h /
+
+      - name: Install build dependencies
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            bc bison flex libssl-dev libelf-dev dwarves \
+            build-essential ccache cpio kmod git curl zip \
+            python3 libncurses-dev
+
+      - name: Fetch toolchain (clang)
+        id: tc
+        run: |
+          set -euo pipefail
+          TC="$GITHUB_WORKSPACE/toolchain"
+          mkdir -p "$TC"
+          if [ -n "${{ inputs.clang_url }}" ]; then
+            echo "Using custom toolchain: ${{ inputs.clang_url }}"
+            curl -L "${{ inputs.clang_url }}" -o /tmp/clang.tar.gz
+            tar -C "$TC" -xf /tmp/clang.tar.gz
+            # if the tarball has a single top dir, flatten it
+            if [ ! -d "$TC/bin" ]; then
+              inner=$(find "$TC" -maxdepth 2 -type d -name bin | head -1)
+              [ -n "$inner" ] && TC=$(dirname "$inner")
+            fi
+          else
+            echo "Using Neutron clang via antman"
+            cd "$TC"
+            curl -LO "https://raw.githubusercontent.com/Neutron-Toolchains/antman/main/antman"
+            chmod +x antman
+            ./antman -S                 # sync latest build
+            ./antman --patch=glibc || true
+          fi
+          echo "clang version:"; "$TC/bin/clang" --version | head -1 || true
+          echo "TC=$TC" >> "$GITHUB_OUTPUT"
+          echo "$TC/bin" >> "$GITHUB_PATH"
+
+      - name: Clone kernel source
+        run: |
+          set -euo pipefail
+          rm -rf "$GITHUB_WORKSPACE/kernel"
+          git clone --depth=1 --branch "${{ inputs.kernel_branch }}" \
+            "${{ inputs.kernel_repo }}" "$GITHUB_WORKSPACE/kernel"
+          cd "$GITHUB_WORKSPACE/kernel"
+          echo "HEAD: $(git rev-parse --short HEAD)  ($(git log -1 --pretty=%s))"
+
+      - name: Prepare .config from device config
+        working-directory: ${{ github.workspace }}/kernel
+        run: |
+          set -euo pipefail
+          export PATH="${{ steps.tc.outputs.TC }}/bin:$PATH"
+          MAKE="make -j$(nproc) O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 CC=clang"
+          mkdir -p out
+
+          if [ -n "${{ inputs.config_url }}" ]; then
+            echo "== Downloading device config =="
+            curl -L "${{ inputs.config_url }}" -o /tmp/devcfg
+            # auto-detect gzip (/proc/config.gz)
+            if gzip -t /tmp/devcfg 2>/dev/null; then
+              zcat /tmp/devcfg > out/.config
+            else
+              cp /tmp/devcfg out/.config
+            fi
+            echo "== olddefconfig: keep device choices, default only NEW symbols =="
+            $MAKE olddefconfig
+          else
+            echo "== Using in-tree defconfig: ${{ inputs.defconfig }} =="
+            $MAKE ${{ inputs.defconfig }}
+          fi
+
+          if [ -n "${{ inputs.config_fragment_url }}" ]; then
+            echo "== Merging extra fragment =="
+            curl -L "${{ inputs.config_fragment_url }}" -o /tmp/frag.config
+            ./scripts/kconfig/merge_config.sh -m -O out out/.config /tmp/frag.config
+            $MAKE olddefconfig
+          fi
+
+          cp out/.config "$GITHUB_WORKSPACE/final_defconfig"
+
+      - name: Build kernel
+        working-directory: ${{ github.workspace }}/kernel
+        run: |
+          set -euo pipefail
+          export PATH="${{ steps.tc.outputs.TC }}/bin:$PATH"
+          export KBUILD_BUILD_USER=ci
+          export KBUILD_BUILD_HOST=github
+          TARGETS="${{ inputs.image_target }}"
+          if [ "${{ inputs.build_dtbs }}" = "true" ]; then TARGETS="$TARGETS dtbs dtbo.img"; fi
+          make -j"$(nproc)" O=out ARCH=arm64 LLVM=1 LLVM_IAS=1 \
+            CC="ccache clang" $TARGETS
+
+      - name: Collect artifacts
+        id: collect
+        working-directory: ${{ github.workspace }}/kernel
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/artifacts"; mkdir -p "$OUT"
+          found=""
+          for f in out/arch/arm64/boot/Image out/arch/arm64/boot/Image.gz \
+                   out/arch/arm64/boot/Image.gz-dtb out/arch/arm64/boot/dtbo.img; do
+            [ -f "$f" ] && cp "$f" "$OUT/" && found="$found $(basename "$f")"
+          done
+          cp "$GITHUB_WORKSPACE/final_defconfig" "$OUT/"
+          echo "collected:$found"
+          [ -n "$found" ] || { echo "::error::No kernel Image produced"; exit 1; }
+          echo "have_image=$( [ -f out/arch/arm64/boot/Image ] && echo 1 || echo 0 )" >> "$GITHUB_OUTPUT"
+
+      - name: Package with AnyKernel3
+        if: ${{ inputs.anykernel_repo != '' && steps.collect.outputs.have_image == '1' }}
+        run: |
+          set -euo pipefail
+          git clone --depth=1 -b "${{ inputs.anykernel_branch }}" \
+            "${{ inputs.anykernel_repo }}" ak3
+          # prefer Image.gz, fall back to Image
+          if [ -f "$GITHUB_WORKSPACE/artifacts/Image.gz" ]; then
+            cp "$GITHUB_WORKSPACE/artifacts/Image.gz" ak3/Image.gz
+          else
+            cp "$GITHUB_WORKSPACE/artifacts/Image" ak3/Image
+          fi
+          [ -f "$GITHUB_WORKSPACE/artifacts/dtbo.img" ] && cp "$GITHUB_WORKSPACE/artifacts/dtbo.img" ak3/ || true
+          rm -rf ak3/.git
+          ( cd ak3 && zip -r9 "$GITHUB_WORKSPACE/artifacts/AnyKernel3-device-$(date +%Y%m%d-%H%M).zip" . -x '*.git*' )
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: device-kernel
+          path: artifacts/**
+          if-no-files-found: error
