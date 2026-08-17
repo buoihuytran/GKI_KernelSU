@@ -185,12 +185,17 @@ jobs:
 
     - name: Apply Performance Patches
       uses: ./.github/actions/performance
-      if: false
+      if: inputs.feature_set == 'FULL' || contains(inputs.feature_set, 'PERF')
       with:
         kernel_version: ${{ inputs.kernel_version }}
 
     - name: Setup Misc Configs
       uses: ./.github/actions/misc
+
+    - name: Apply Kernel Tweaks (MGLRU / BFQ / ZRAM writeback)
+      uses: ./.github/actions/tweaks
+      with:
+        kernel_version: ${{ inputs.kernel_version }}
 
     - name: Enable BTF
       uses: ./.github/actions/btf

@@ -1,0 +1,26 @@
+name: 'Apply Kernel Tweaks'
+description: 'KMI-safe config tweaks: MGLRU, BFQ I/O scheduler, ZRAM writeback'
+
+inputs:
+  kernel_version:
+    description: 'Kernel version (e.g. 5.15) - informational'
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Enable tweak configs
+      uses: ./.github/actions/set-kernel-config
+      with:
+        config_list: |
+          # MGLRU (Multi-Gen LRU): smarter page reclaim -> smoother under
+          # memory pressure and better battery. Enabled by default at boot.
+          CONFIG_LRU_GEN=y
+          CONFIG_LRU_GEN_ENABLED=y
+          # BFQ I/O scheduler: lower latency for interactive/foreground I/O.
+          CONFIG_IOSCHED_BFQ=y
+          CONFIG_BFQ_GROUP_IOSCHED=y
+          # ZRAM writeback: allow zram to spill idle/huge pages to a backing
+          # device. Harmless if userspace never configures a backing device.
+          CONFIG_ZRAM_WRITEBACK=y
